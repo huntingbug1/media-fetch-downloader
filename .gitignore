@@ -1,0 +1,28 @@
+# Python
+backend/venv/
+backend/__pycache__/
+backend/services/__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+
+# Temp files
+backend/temp_downloads/*
+!backend/temp_downloads/.gitkeep
+backend/--Frag*
+backend/logs/*.log
+
+# Node
+node_modules/
+dist/
+.vercel/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Dev data
+backend/formats*.json
+backend/test_*.py
+backend/*.sh
+.env*.local

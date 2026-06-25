@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Fetch</title>
+    <link rel="stylesheet" href="popup.css">
+</head>
+
+<body>
+    <div id="app">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="logo">⬇</div>
+                <div>
+                    <h1>Media Fetch</h1>
+                    <div class="header-subtitle">Download any video</div>
+                </div>
+            </div>
+            <button id="settings-btn" class="icon-btn" title="Settings">⚙</button>
+        </div>
+
+        <!-- Tab Bar -->
+        <div class="tab-bar">
+            <button class="tab active" data-tab="video">🎬 Video</button>
+            <button class="tab" data-tab="downloads">📥 Downloads <span id="dl-count"
+                    class="tab-badge hidden">0</span></button>
+        </div>
+
+        <!-- Settings Panel -->
+        <div id="settings-panel" class="settings-panel hidden">
+            <div class="settings-group">
+                <label>Backend URL</label>
+                <input type="text" id="backend-url" placeholder="http://localhost:8000" />
+            </div>
+            <div class="settings-group">
+                <label>Download Folder</label>
+                <input type="text" id="download-folder" placeholder="MediaFetch" />
+                <span class="settings-hint">Files save to: Downloads/[folder]/[platform]/video.mp4</span>
+            </div>
+            <div class="settings-group settings-row">
+                <label>Auto-create platform subfolders</label>
+                <input type="checkbox" id="subfolder-toggle" checked />
+            </div>
+            <button id="save-settings" class="btn btn-sm">Save Settings</button>
+            <button id="copy-debug-logs" class="btn btn-sm" style="background: #475569; margin-top: 6px;">📋 Copy Debug Logs</button>
+        </div>
+
+        <!-- ═══ VIDEO TAB ═══ -->
+        <div id="video-tab" class="tab-content">
+            <div id="status-area">
+                <div id="unsupported" class="status-msg hidden">
+                    <span class="status-icon">🔗</span>
+                    <p>Navigate to a video on YouTube, Instagram, TikTok, Twitter/X, Facebook, or Reddit.</p>
+                </div>
+                <div id="loading" class="status-msg hidden">
+                    <div class="spinner"></div>
+                    <p>Fetching video info...</p>
+                </div>
+                <div id="error-msg" class="status-msg error hidden">
+                    <span class="status-icon">⚠️</span>
+                    <p id="error-text"></p>
+                </div>
+            </div>
+
+            <!-- Single Video -->
+            <div id="video-info" class="hidden">
+                <div class="video-card">
+                    <img id="video-thumb" alt="Thumbnail" />
+                    <div class="video-meta">
+                        <h2 id="video-title"></h2>
+                        <span id="video-duration" class="badge"></span>
+                    </div>
+                </div>
+                <div id="formats-list" class="formats-list"></div>
+            </div>
+
+            <!-- Playlist -->
+            <div id="playlist-info" class="hidden">
+                <div class="playlist-header">
+                    <h2 id="playlist-title"></h2>
+                    <span id="playlist-count" class="badge"></span>
+                </div>
+                <div class="playlist-controls">
+                    <select id="playlist-quality" class="select-quality">
+                        <option value="best">Best Quality</option>
+                        <option value="4k">2160p (4K)</option>
+                        <option value="1080p">1080p</option>
+                        <option value="720p">720p</option>
+                        <option value="480p">480p</option>
+                        <option value="360p">360p</option>
+                        <option value="audio">🎵 Audio Only (MP3)</option>
+                    </select>
+                    <select id="playlist-limit" class="select-quality" title="How many videos to download">
+                        <option value="0">All Videos</option>
+                        <option value="10">First 10</option>
+                        <option value="25">First 25</option>
+                        <option value="50">First 50</option>
+                        <option value="100">First 100</option>
+                    </select>
+                    <button id="playlist-download-btn" class="btn btn-download-all">⬇ Download All</button>
+                </div>
+                <div id="playlist-entries" class="playlist-entries"></div>
+            </div>
+
+            <div id="download-progress" class="download-progress hidden">
+                <div class="progress-bar">
+                    <div id="progress-fill" class="progress-fill"></div>
+                </div>
+                <p id="progress-text" class="progress-text">Preparing...</p>
+            </div>
+        </div>
+
+        <!-- ═══ DOWNLOADS TAB ═══ -->
+        <div id="downloads-tab" class="tab-content hidden">
+            <div id="downloads-empty" class="status-msg">
+                <span class="status-icon">📭</span>
+                <p>No downloads yet. Start downloading from the Video tab!</p>
+            </div>
+            <div id="downloads-list" class="downloads-list"></div>
+            <button id="clear-all-btn" class="btn btn-clear hidden">🗑 Clear Completed</button>
+        </div>
+    </div>
+
+    <script src="popup.js"></script>
+</body>
+
+</html>

@@ -1,0 +1,230 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Media Fetch — Premium Web Dashboard</title>
+    <!-- Inter Font -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <!-- FontAwesome for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-glow bg-glow-1"></div>
+    <div class="background-glow bg-glow-2"></div>
+
+    <div class="dashboard-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="brand">
+                <i class="fa-solid fa-cloud-arrow-down brand-icon"></i>
+                <div class="brand-text">
+                    <h1>Media Fetch</h1>
+                    <span>Web Dashboard v1.0</span>
+                </div>
+            </div>
+
+            <nav class="nav-menu">
+                <button class="nav-item active" data-tab="downloader">
+                    <i class="fa-solid fa-circle-down"></i> Downloader
+                </button>
+                <button class="nav-item" data-tab="downloads">
+                    <i class="fa-solid fa-clock-rotate-left"></i> Downloads
+                    <span class="badge" id="active-count" style="display: none;">0</span>
+                </button>
+                <button class="nav-item" data-tab="about">
+                    <i class="fa-solid fa-circle-info"></i> System Info
+                </button>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="status-indicator">
+                    <span class="status-dot online"></span>
+                    <span class="status-text">Backend Connected</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- DOWNLOADER TAB -->
+            <section id="tab-downloader" class="tab-content active">
+                <div class="welcome-header">
+                    <h2>Paste Video Link</h2>
+                    <p>Download video and audio streams from YouTube, Facebook, TikTok, Instagram, Twitter, and more.</p>
+                </div>
+
+                <div class="input-card glass-panel">
+                    <div class="input-group">
+                        <i class="fa-solid fa-link input-icon"></i>
+                        <input type="text" id="video-url" placeholder="Paste YouTube, Facebook, TikTok, or Instagram link here..." autocomplete="off">
+                        <button id="btn-fetch" class="btn-primary">
+                            <span class="btn-text">Fetch Info</span>
+                            <i class="fa-solid fa-arrow-right btn-icon"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Loading State -->
+                <div id="info-loading" class="loading-container glass-panel" style="display: none;">
+                    <div class="spinner"></div>
+                    <p>Analyzing video URL and extracting metadata...</p>
+                    <small>Using yt-dlp to fetch the best available stream formats</small>
+                </div>
+
+                <!-- Info Display Card -->
+                <div id="video-info-card" class="video-info-card glass-panel" style="display: none;">
+                    <div class="info-layout">
+                        <div class="thumbnail-wrapper">
+                            <img id="video-thumbnail" src="" alt="Video Thumbnail">
+                            <span id="video-duration" class="duration-tag">0:00</span>
+                        </div>
+                        <div class="details-wrapper">
+                            <h3 id="video-title">Video Title</h3>
+                            <div class="meta-row">
+                                <span class="meta-item"><i class="fa-solid fa-user"></i> <span id="video-uploader">Uploader</span></span>
+                                <span class="meta-item"><i class="fa-solid fa-globe"></i> <span id="video-platform">Platform</span></span>
+                            </div>
+                            
+                            <div class="format-selectors">
+                                <div class="selector-group">
+                                    <label for="format-video"><i class="fa-solid fa-video"></i> Video Format</label>
+                                    <select id="format-video" class="glass-select"></select>
+                                    <button id="btn-download-video" class="btn-action"><i class="fa-solid fa-download"></i> Download Video</button>
+                                </div>
+                                <div class="selector-separator"><span>OR</span></div>
+                                <div class="selector-group">
+                                    <label for="format-audio"><i class="fa-solid fa-music"></i> Audio Format (MP3)</label>
+                                    <select id="format-audio" class="glass-select"></select>
+                                    <button id="btn-download-audio" class="btn-action btn-audio"><i class="fa-solid fa-file-audio"></i> Download Audio</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Playlist Info Display Card -->
+                <div id="playlist-info-card" class="video-info-card glass-panel" style="display: none;">
+                    <div class="info-layout">
+                        <div class="thumbnail-wrapper">
+                            <img id="playlist-thumbnail" src="" alt="Playlist Thumbnail">
+                            <span id="playlist-count" class="duration-tag">0 Videos</span>
+                        </div>
+                        <div class="details-wrapper">
+                            <h3 id="playlist-title">Playlist Title</h3>
+                            <div class="meta-row">
+                                <span class="meta-item"><i class="fa-solid fa-list"></i> YouTube Playlist</span>
+                                <span class="meta-item"><i class="fa-solid fa-globe"></i> <span id="playlist-platform">YouTube</span></span>
+                            </div>
+                            
+                            <div class="playlist-download-controls" style="display: flex; gap: 16px; align-items: flex-end; width: 100%; margin-top: 14px;">
+                                <div class="selector-group" style="flex: 1;">
+                                    <label for="playlist-quality"><i class="fa-solid fa-sliders"></i> Quality</label>
+                                    <select id="playlist-quality" class="glass-select">
+                                        <option value="best">Best Quality</option>
+                                        <option value="4k">2160p (4K)</option>
+                                        <option value="1080p">1080p</option>
+                                        <option value="720p">720p</option>
+                                        <option value="480p">480p</option>
+                                        <option value="360p">360p</option>
+                                        <option value="audio">🎵 Audio Only (MP3)</option>
+                                    </select>
+                                </div>
+                                <div class="selector-group" style="flex: 1;">
+                                    <label for="playlist-limit"><i class="fa-solid fa-list-ol"></i> Limit Videos</label>
+                                    <select id="playlist-limit" class="glass-select">
+                                        <option value="0">All Videos</option>
+                                        <option value="10">First 10</option>
+                                        <option value="25">First 25</option>
+                                        <option value="50">First 50</option>
+                                        <option value="100">First 100</option>
+                                    </select>
+                                </div>
+                                <button id="btn-download-playlist" class="btn-action" style="flex: 1.2; height: 42px; margin-top: 0; background: var(--accent-teal);"><i class="fa-solid fa-circle-down"></i> Download Playlist (.ZIP)</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div id="playlist-entries-preview" style="margin-top: 24px; max-height: 180px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 8px; padding: 12px; background: rgba(0,0,0,0.2);">
+                        <h4 style="font-size: 13px; font-weight: 600; margin-bottom: 8px; color: var(--text-secondary);"><i class="fa-solid fa-video"></i> Videos in this playlist:</h4>
+                        <div id="playlist-items-list" style="display: flex; flex-direction: column; gap: 8px;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- DOWNLOADS TAB -->
+            <section id="tab-downloads" class="tab-content">
+                <div class="welcome-header">
+                    <h2>Downloads Gallery</h2>
+                    <p>Monitor your active downloads and download completed files to your computer.</p>
+                </div>
+
+                <div class="downloads-list" id="downloads-container">
+                    <!-- Empty State -->
+                    <div class="empty-downloads" id="empty-state">
+                        <i class="fa-solid fa-folder-open"></i>
+                        <p>No downloads yet. Go to Downloader to download your first media file.</p>
+                    </div>
+                </div>
+            </section>
+
+            <!-- ABOUT TAB -->
+            <section id="tab-about" class="tab-content">
+                <div class="welcome-header">
+                    <h2>System Status & Info</h2>
+                    <p>Environment status, system dependencies, and settings.</p>
+                </div>
+
+                <div class="about-grid">
+                    <div class="glass-panel info-box">
+                        <h3><i class="fa-solid fa-circle-check accent-text"></i> System Backend</h3>
+                        <p>The backend runs locally on FastAPI and routes requests to <code>yt-dlp</code> with parallel multi-connection downloading via <code>aria2c</code>.</p>
+                        <div class="dependency-status">
+                            <div class="dep-item">
+                                <span class="dep-name">yt-dlp engine</span>
+                                <span class="dep-val badge badge-success">Running (Local Venv)</span>
+                            </div>
+                            <div class="dep-item">
+                                <span class="dep-name">aria2c accelerator</span>
+                                <span class="dep-val badge badge-success">Enabled (Parallel Streams)</span>
+                            </div>
+                            <div class="dep-item">
+                                <span class="dep-name">ffmpeg merger</span>
+                                <span class="dep-val badge badge-success">Detected (System PATH)</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="glass-panel info-box">
+                        <h3><i class="fa-solid fa-gear accent-text"></i> Configuration</h3>
+                        <ul class="settings-list">
+                            <li>
+                                <span class="setting-name">Temporary Downloads Directory</span>
+                                <span class="setting-value"><code>backend/temp_downloads/</code></span>
+                            </li>
+                            <li>
+                                <span class="setting-name">Auto Cleanup</span>
+                                <span class="setting-value">Files older than 1 hour deleted automatically</span>
+                            </li>
+                            <li>
+                                <span class="setting-name">Simultaneous Playlist Downloads</span>
+                                <span class="setting-value">Up to 4 concurrent downloads</span>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="toast">
+        <i class="fa-solid fa-circle-info toast-icon"></i>
+        <span id="toast-message">Notification message</span>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>

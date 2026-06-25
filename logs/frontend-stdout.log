@@ -1,0 +1,10 @@
+
+> @figma/my-make-file@0.0.1 dev
+> vite --host
+
+
+  VITE v6.3.5  ready in 220 ms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.70.13:5173/
+  ➜  Network: http://10.10.10.2:5173/
