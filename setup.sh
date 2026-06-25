@@ -5,6 +5,17 @@ cd "$(dirname "$0")"
 # Export standard macOS Homebrew paths so we can find brew, python3, aria2c, etc.
 export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
+# On macOS, fix SSL certificate verification errors common in official Python.org installers
+if [ "$(uname)" = "Darwin" ]; then
+    echo "→  Configuring SSL Certificates (macOS)..."
+    PY_VERSION=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')")
+    CERT_CMD="/Applications/Python ${PY_VERSION}/Install Certificates.command"
+    if [ -f "$CERT_CMD" ]; then
+        "$CERT_CMD" &>/dev/null || true
+        echo "✓  SSL Certificates configured"
+    fi
+fi
+
 echo ""
 echo "╔══════════════════════════════════════╗"
 echo "║     Media Fetch — Setup & Start      ║"
