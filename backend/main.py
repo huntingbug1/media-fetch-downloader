@@ -13,7 +13,7 @@ import ssl
 import aiohttp
 import certifi
 from typing import Optional, List
-from fastapi import FastAPI, HTTPException, BackgroundTasks
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, StreamingResponse
 from fastapi.staticfiles import StaticFiles
@@ -189,6 +189,7 @@ def _add_browser_cookies(cmd: List[str]) -> None:
 class InfoRequest(BaseModel):
     url: str
     cookies: str = ""   # Netscape-format cookies from the browser extension
+    user_agent: str = ""
 
 class DownloadRequest(BaseModel):
     url: str = ""
@@ -201,6 +202,7 @@ class DownloadRequest(BaseModel):
     direct_url: str = ""     # TikWM direct media URL
     cookies: str = ""        # Netscape-format cookies from the browser extension
     is_dashboard: bool = False
+    user_agent: str = ""
 
 class PlaylistDownloadRequest(BaseModel):
     playlist_url: str
@@ -347,7 +349,7 @@ def _yt_format_selector(format_id: str, height: int = 0) -> str:
     return f"{format_id}+bestaudio/best"
 
 
-def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0, needs_merge: bool = False, info_json_path: Optional[str] = None, cookies_path: str = "") -> List[str]:
+def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0, needs_merge: bool = False, info_json_path: Optional[str] = None, cookies_path: str = "", user_agent: str = "") -> List[str]:
     """
     Build a yt-dlp command that downloads to a real file.
     Uses aria2c for maximum parallel download speed (16 connections — IDM-style).
@@ -392,18 +394,23 @@ def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0
         cmd.append(url)
         return cmd
 
+    # Resolve user agent: prefer the passed one, otherwise fallback to platform defaults
+    ua = user_agent
+    if not ua:
+        if is_youtube:
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        elif is_instagram:
+            ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+        elif is_tiktok:
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        else:
+            ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+
+    cmd.extend(["--user-agent", ua])
+
     if is_youtube:
         cmd.extend([
-            "--user-agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
             "--add-header", "Accept-Language:en-US,en;q=0.9",
-        ])
-
-    if is_instagram:
-        cmd.extend([
-            "--user-agent",
-            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
         ])
 
     if is_tiktok:
@@ -411,9 +418,6 @@ def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0
             "--extractor-args", "tiktok:api_hostname=api16-normal-c-useast1a.tiktokv.com",
             "--add-header", "Referer:https://www.tiktok.com/",
             "--add-header", "Origin:https://www.tiktok.com",
-            "--user-agent",
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-            "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         ])
 
     # Format selection: merge needs video+audio, non-merge is pre-muxed
@@ -718,12 +722,20 @@ async def health_check():
 @app.get("/api/info")
 @app.get("/info")
 async def get_video_info(
+    req: Request,
     request: Optional[InfoRequest] = None,
     url: Optional[str] = None,
     cookies: Optional[str] = "",
+    user_agent: Optional[str] = "",
 ):
     target_url = (request.url if request else url) or ""
     target_cookies = (request.cookies if request else cookies) or ""
+    
+    # Resolve user agent from body, query string, or headers
+    target_user_agent = (request.user_agent if request and "user_agent" in request.model_fields_set else user_agent) or ""
+    if not target_user_agent:
+        target_user_agent = req.headers.get("user-agent", "")
+
     if not target_url:
         raise HTTPException(status_code=400, detail="URL is required")
     
@@ -738,7 +750,7 @@ async def get_video_info(
 
     cookies_path = _write_temp_cookies(target_cookies)
     try:
-        raw = await YTDLPService.get_metadata(target_url, cookies_path=cookies_path)
+        raw = await YTDLPService.get_metadata(target_url, cookies_path=cookies_path, user_agent=target_user_agent)
         try:
             cache_db.save_metadata(target_url, raw)
         except Exception as ce:
@@ -766,6 +778,7 @@ async def sync_tabs(request: TabSyncRequest, background_tasks: BackgroundTasks):
 
 @app.api_route("/api/download", methods=["GET", "POST"])
 async def download_video(
+    req: Request,
     background_tasks: BackgroundTasks,
     request: Optional[DownloadRequest] = None,
     url: Optional[str] = None,
@@ -778,6 +791,7 @@ async def download_video(
     direct_url: Optional[str] = None,
     cookies: Optional[str] = "",
     is_dashboard: Optional[bool] = False,
+    user_agent: Optional[str] = "",
 ):
     # ── Resolve parameters (POST body OR GET query string) ──
     target_url = (request.url if request and "url" in request.model_fields_set else url) or ""
@@ -788,6 +802,11 @@ async def download_video(
     target_direct_url = (request.direct_url if request and "direct_url" in request.model_fields_set else direct_url) or ""
     target_cookies = (request.cookies if request and "cookies" in request.model_fields_set else cookies) or ""
     target_is_dashboard = request.is_dashboard if request and "is_dashboard" in request.model_fields_set else (is_dashboard or False)
+    
+    # Resolve user agent from body, query string, or headers
+    target_user_agent = (request.user_agent if request and "user_agent" in request.model_fields_set else user_agent) or ""
+    if not target_user_agent:
+        target_user_agent = req.headers.get("user-agent", "")
 
     if not target_url or not target_format:
         raise HTTPException(status_code=400, detail="url and format_id are required")
@@ -909,12 +928,28 @@ async def download_video(
             media_type="audio/mpeg",
         )
 
-    # ── Video ──────────────────────────────────────────────────────────────────
-    target_needs_merge = request.needs_merge if request else (needs_merge or False)
+    target_needs_merge = request.needs_merge if request and "needs_merge" in request.model_fields_set else (needs_merge or False)
+
+    # Force needs_merge to True if the cached metadata indicates the format is video-only
+    try:
+        cached = cache_db.get_cached_metadata(target_url)
+        if cached:
+            formats = cached.get("formats", [])
+            for f in formats:
+                if isinstance(f, dict) and str(f.get("format_id")) == target_format:
+                    vcodec = f.get("vcodec") or "none"
+                    acodec = f.get("acodec") or "none"
+                    if vcodec != "none" and acodec == "none":
+                        target_needs_merge = True
+                        print(f"[MediaFetch Backend] Override needs_merge=True for video-only format {target_format}")
+                        break
+    except Exception as ce:
+        print(f"[MediaFetch Backend] Error overriding needs_merge: {ce}")
+
 
     # Use async background download job for all videos (IDM-style parallel download via aria2c to a temp file, then served via FileResponse)
     job_id = uuid.uuid4().hex[:12]
-    target_expected_size = (request.expected_size if request else expected_size) or 0
+    target_expected_size = (request.expected_size if request and "expected_size" in request.model_fields_set else expected_size) or 0
     job = DownloadJob(
         job_id=job_id,
         filename=safe_filename,
@@ -934,7 +969,8 @@ async def download_video(
         height=target_height, 
         needs_merge=target_needs_merge, 
         info_json_path=info_json_path,
-        cookies_path=cookies_path
+        cookies_path=cookies_path,
+        user_agent=target_user_agent
     )
 
     asyncio.create_task(_run_merge_job(job, cmd, temp_path, cookies_path=cookies_path))

@@ -63,7 +63,7 @@ class YTDLPService:
         return shutil.which("ffmpeg") is not None
 
     @staticmethod
-    async def get_metadata(url: str, retries: int = 3, cookies_path: str = "") -> Dict[str, Any]:
+    async def get_metadata(url: str, retries: int = 3, cookies_path: str = "", user_agent: str = "") -> Dict[str, Any]:
         """
         Extracts metadata with retries for stability.
         Prioritizes TikWM for TikTok to get no-watermark links.
@@ -114,20 +114,19 @@ class YTDLPService:
                     "--geo-bypass",          # Bypass regional blocks
                 ]
 
-                if is_youtube:
-                    cmd.extend([
-                        "--user-agent",
-                        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        "--add-header", "Accept-Language:en-US,en;q=0.9",
-                    ])
+                # Resolve user agent: prefer the passed one, otherwise fallback to platform defaults
+                ua = user_agent
+                if not ua:
+                    if is_youtube:
+                        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                    elif is_instagram:
+                        ua = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
+                    else:
+                        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36"
 
-                if is_instagram:
-                    cmd.extend([
-                        "--user-agent",
-                        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
-                        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
-                        "--add-header", "Accept-Language:en-US,en;q=0.9",
-                    ])
+                cmd.extend(["--user-agent", ua])
+                if is_youtube or is_instagram:
+                    cmd.extend(["--add-header", "Accept-Language:en-US,en;q=0.9"])
 
                 if cookie_for_attempt and os.path.exists(cookie_for_attempt):
                     cmd.extend(["--cookies", cookie_for_attempt])

@@ -616,7 +616,7 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
                 const res = await fetch(`${backendUrl}/api/info`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ url, cookies }),
+                    body: JSON.stringify({ url, cookies, user_agent: navigator.userAgent }),
                 });
                 if (!res.ok) { const d = await res.json().catch(() => null); throw new Error(d?.detail || `Server ${res.status}`); }
                 const data = await res.json();
@@ -788,7 +788,7 @@ async function handleMergeJob(downloadUrl, filename, dlId) {
         const res = await fetch(downloadUrl, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ cookies }),
+            body: JSON.stringify({ cookies, user_agent: navigator.userAgent }),
         });
         if (!res.ok) { setDlStatus(dlId, 'failed', { error: `Server ${res.status}` }); return; }
         const data = await res.json();
