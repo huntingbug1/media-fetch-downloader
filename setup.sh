@@ -2,6 +2,9 @@
 set -e
 cd "$(dirname "$0")"
 
+# Export standard macOS Homebrew paths so we can find brew, python3, aria2c, etc.
+export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
 echo ""
 echo "╔══════════════════════════════════════╗"
 echo "║     Media Fetch — Setup & Start      ║"
