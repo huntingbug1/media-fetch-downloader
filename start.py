@@ -28,16 +28,17 @@ def run_cmd(cmd, env=None, cwd=None):
     except subprocess.CalledProcessError as e:
         print_err(f"Command failed: {' '.join(str(c) for c in cmd)}\n{e.stderr.decode('utf-8', errors='replace')}")
 
-def find_free_port(start_port=8000):
+def find_free_port(start_port=8000, max_port=8020):
     import socket
-    port = start_port
-    while True:
+    for port in range(start_port, max_port + 1):
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             try:
                 s.bind(("0.0.0.0", port))
                 return port
             except OSError:
-                port += 1
+                continue
+    print(f"  ✗ No free port found in range {start_port}–{max_port}. Please free up a port and try again.")
+    import sys; sys.exit(1)
 
 def get_local_ip():
     import socket

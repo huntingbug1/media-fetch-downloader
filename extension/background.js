@@ -479,8 +479,10 @@ async function probeBackendPort() {
             }
         } catch (_) {}
 
-        console.log(`[MediaFetch BG] Stored backend offline. Probing ports 8000-8005...`);
-        const ports = [8000, 8001, 8002, 8003, 8004, 8005];
+        console.log(`[MediaFetch BG] Stored backend offline. Probing ports 8000-8020...`);
+        // Probe a wide range — start.py picks the first free port starting at 8000,
+        // so on busy machines it may land anywhere up to ~8020.
+        const ports = Array.from({ length: 21 }, (_, i) => 8000 + i); // 8000..8020
         const promises = ports.map(async (port) => {
             const url = `http://localhost:${port}`;
             try {
@@ -488,7 +490,7 @@ async function probeBackendPort() {
                 if (res.ok) {
                     const health = await res.json();
                     if (health.status === 'ok') {
-                        return { url, version: health.version };
+                        return { url, port, version: health.version };
                     }
                 }
             } catch (_) {}
@@ -496,9 +498,10 @@ async function probeBackendPort() {
         });
 
         const results = await Promise.all(promises);
-        const active = results.find(r => r !== null);
+        // Pick the lowest-numbered active port (most likely the intended one)
+        const active = results.filter(r => r !== null).sort((a, b) => a.port - b.port)[0];
         if (active) {
-            console.log(`[MediaFetch BG] Auto-detected active backend at: ${active.url}`);
+            console.log(`[MediaFetch BG] Auto-detected active backend at: ${active.url} (port ${active.port})`);
             await storage.set({ backendUrl: active.url });
             return active.url;
         }
@@ -641,7 +644,9 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
         let { url, filename, dlId } = msg;
         storage.get('backendUrl').then(async s => {
             const base = s.backendUrl || BACKEND_URL;
-            if (url.startsWith(base) || url.startsWith('http://localhost:8000') || url.startsWith('http://localhost:8080')) {
+            // Match any localhost port dynamically — don't hardcode 8000/8080
+            const isLocalhost = url.startsWith(base) || /^http:\/\/localhost:\d+/.test(url);
+            if (isLocalhost) {
                 try {
                     const targetUrl = new URL(url).searchParams.get('url');
                     if (targetUrl) {
