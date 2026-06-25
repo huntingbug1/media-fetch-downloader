@@ -320,7 +320,23 @@ def _yt_format_selector(format_id: str, height: int = 0) -> str:
       2. Fall back to best video at the same height + best audio
       3. Fall back to best combined format at that height
       4. Last resort: absolute best
+
+    If format_id is already a compound selector (contains + or [height),
+    use it as-is with fallbacks only — don't wrap it again.
     """
+    is_compound = '+' in format_id or '[' in format_id
+    if is_compound:
+        # Already a full selector (e.g. "bestvideo[height<=1440]+bestaudio")
+        # Just add height-based and absolute fallbacks, don't double-wrap
+        if height > 0:
+            return (
+                f"{format_id}/"
+                f"bestvideo[height<={height}]+bestaudio/"
+                f"best[height<={height}]/"
+                f"best"
+            )
+        return f"{format_id}/best"
+    # Simple numeric/named format ID — wrap with audio + fallbacks
     if height > 0:
         return (
             f"{format_id}+bestaudio/"
@@ -414,7 +430,10 @@ def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0
         "-f", fmt,
         "--merge-output-format", "mp4",
     ])
-    if cookies_path and os.path.exists(cookies_path):
+    if cookies_path and os.path.exists(cookies_path) and not is_youtube:
+        # Skip cookies for YouTube — browser session cookies cause YouTube to restrict
+        # available formats differently than the metadata fetch, causing download failures.
+        # YouTube downloads work fine without cookies for public/unlisted videos.
         cmd.extend(["--cookies", cookies_path])
     cmd.append(url)
     return cmd
@@ -528,6 +547,8 @@ SERVED_JOBS: dict[str, DownloadJob] = {}
 
 async def _run_merge_job(job: DownloadJob, cmd: List[str], temp_path: str, cookies_path: str = ""):
     """Run yt-dlp in background, track progress via file size, update job state."""
+    print(f"[MediaFetch Download] Starting job {job.job_id}: {job.filename}")
+    print(f"[MediaFetch Download] Command: {' '.join(cmd[:6])}...")  # log first 6 args only
     try:
         job.status = "downloading"
         proc = await asyncio.create_subprocess_exec(
@@ -636,9 +657,11 @@ async def _run_merge_job(job: DownloadJob, cmd: List[str], temp_path: str, cooki
 
             job.status = "failed"
             job.error = error_msg or "Download produced no output file"
+            print(f"[MediaFetch Download] FAILED job {job.job_id}: {job.error}")
     except Exception as e:
         job.status = "failed"
         job.error = str(e)
+        print(f"[MediaFetch Download] EXCEPTION in job {job.job_id}: {e}")
     finally:
         if cookies_path and os.path.exists(cookies_path):
             try:

@@ -611,18 +611,10 @@ async function startDownload(format, data, origUrl, isAudio) {
     // which chrome.downloads.download() cannot send, causing silent 403 failures.
     const cdnDirectUrl = TIKWM.includes(format.format_id) ? (format.url || '') : '';
 
-    // For YouTube, numeric format IDs (e.g. "400") can expire between metadata fetch and download.
-    // Use a height-based selector instead — it always resolves correctly via _yt_format_selector().
-    const isYouTube = /youtube\.com|youtu\.be/.test(origUrl);
-    const fmtHeight = format.height || format.resolution || 0;
-    const resolvedFormatId = (isYouTube && !isAudio && /^\d+$/.test(format.format_id) && fmtHeight > 0)
-        ? `bestvideo[height<=${fmtHeight}]+bestaudio`  // height-based — never expires
-        : format.format_id;                             // use raw ID for TikTok/Instagram/etc.
-
     const params = new URLSearchParams({
         url: origUrl,
-        format_id: resolvedFormatId,
-        height: fmtHeight.toString(),
+        format_id: format.format_id,
+        height: (format.height || format.resolution || 0).toString(),
         filename: filename.split('/').pop(),
         is_audio: isAudio.toString(),
         needs_merge: (format.needs_merge === true && !cdnDirectUrl).toString(),
