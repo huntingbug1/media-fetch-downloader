@@ -68,25 +68,37 @@ class YTDLPService:
         Extracts metadata with retries for stability.
         Prioritizes TikWM for TikTok to get no-watermark links.
         Supports both single videos and playlists for other platforms.
+
+        For YouTube: always fetches metadata WITHOUT cookies first.
+        Reason: browser cookies can cause YouTube to return a restricted/premium
+        format list that conflicts with --no-check-formats, producing the error
+        "Requested format is not available". Public metadata never needs cookies.
+        Cookies are only used as a fallback for age-restricted content.
         """
-        print(f"[MediaFetch Backend] get_metadata called with URL: {url} (cookies: {'yes' if cookies_path else 'no'})")
+        is_youtube = 'youtube.com' in url or 'youtu.be' in url
+        is_tiktok  = 'tiktok.com' in url
+        is_instagram = 'instagram.com' in url
+        is_playlist_url = ('list=' in url and 'watch?v=' not in url) or ('/playlist?' in url) or ('/channel/' in url and '/videos' in url)
+
+        # For YouTube, build two attempt sequences: first without cookies, then with.
+        # For all other platforms, use cookies from the start (needed for private/login-walled content).
+        if is_youtube and cookies_path and os.path.exists(cookies_path):
+            attempt_cookies = ["", cookies_path]   # try no-cookie first, cookie second
+            print(f"[MediaFetch Backend] get_metadata called with URL: {url} (cookies: deferred — YouTube)")
+        else:
+            attempt_cookies = [cookies_path] * retries  # same cookie path for all retries
+            print(f"[MediaFetch Backend] get_metadata called with URL: {url} (cookies: {'yes' if cookies_path else 'no'})")
+
         last_error = None
         for attempt in range(retries):
+            # Determine which cookie path to use for this attempt
+            cookie_for_attempt = attempt_cookies[attempt] if attempt < len(attempt_cookies) else cookies_path
             try:
-                # Improved playlist detection: only treat as playlist if it's a dedicated playlist URL
-                # and NOT a single video that happens to be inside a playlist.
-                is_playlist_url = ('list=' in url and 'watch?v=' not in url) or ('/playlist?' in url) or ('/channel/' in url and '/videos' in url)
-                is_tiktok = 'tiktok.com' in url
-
                 if is_tiktok:
                     try:
                         return await YTDLPService.tiktok_tikwm_fetch(url)
                     except Exception as e:
                         print(f"TikWM fetch failed (attempt {attempt+1}), trying yt-dlp: {str(e)}")
-
-                is_youtube = 'youtube.com' in url or 'youtu.be' in url
-
-                is_instagram = 'instagram.com' in url
 
                 # Base command
                 cmd = [
@@ -117,8 +129,11 @@ class YTDLPService:
                         "--add-header", "Accept-Language:en-US,en;q=0.9",
                     ])
 
-                if cookies_path and os.path.exists(cookies_path):
-                    cmd.extend(["--cookies", cookies_path])
+                if cookie_for_attempt and os.path.exists(cookie_for_attempt):
+                    cmd.extend(["--cookies", cookie_for_attempt])
+                    print(f"[MediaFetch Backend] Attempt {attempt+1}: using cookies")
+                else:
+                    print(f"[MediaFetch Backend] Attempt {attempt+1}: no cookies")
                 cmd.append(url)
 
                 process = await asyncio.create_subprocess_exec(
@@ -189,7 +204,7 @@ class YTDLPService:
                 print(f"Metadata fetch attempt {attempt+1} failed: {str(e)}")
                 if attempt < retries - 1:
                     await asyncio.sleep(2)
-                    
+
         if not last_error:
             last_error = Exception("Extraction failed: YouTube blocked the request or returned no data.")
         raise last_error
