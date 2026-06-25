@@ -209,7 +209,6 @@ $('#video-url').addEventListener('keypress', (e) => {
     if (e.key === 'Enter') fetchVideoInfo();
 });
 
-// Format Dropdowns Population
 function populateFormats(formats) {
     const videoSelect = $('#format-video');
     const audioSelect = $('#format-audio');
@@ -217,12 +216,38 @@ function populateFormats(formats) {
     videoSelect.innerHTML = '';
     audioSelect.innerHTML = '';
     
-    // Sort formats
+    // Filter formats
     const videoFormats = formats.filter(f => f.is_video);
     const audioFormats = formats.filter(f => f.is_audio);
     
-    if (videoFormats.length > 0) {
-        videoFormats.forEach(f => {
+    // Deduplicate video formats: keep one best format per resolution, prefer mp4
+    const byRes = new Map();
+    for (const f of videoFormats) {
+        const res = f.height || f.resolution || 0;
+        if (res === 0) continue;
+        const existing = byRes.get(res);
+        if (!existing) {
+            byRes.set(res, f);
+        } else {
+            const existingIsMp4 = (existing.extension || existing.container || '').toLowerCase() === 'mp4';
+            const currentIsMp4 = (f.extension || f.container || '').toLowerCase() === 'mp4';
+            if (currentIsMp4 && !existingIsMp4) {
+                byRes.set(res, f);
+            } else if ((currentIsMp4 === existingIsMp4) && (f.filesize_approx || 0) > (existing.filesize_approx || 0)) {
+                byRes.set(res, f);
+            }
+        }
+    }
+    
+    // Sort descending by resolution
+    const uniqueVideo = [...byRes.values()].sort((a, b) => {
+        const resA = a.height || a.resolution || 0;
+        const resB = b.height || b.resolution || 0;
+        return resB - resA;
+    });
+    
+    if (uniqueVideo.length > 0) {
+        uniqueVideo.forEach(f => {
             const qualityStr = f.quality || (f.height ? `${f.height}p` : 'Unknown');
             const sizeStr = f.filesize_approx ? ` (~${formatBytes(f.filesize_approx)})` : '';
             const option = document.createElement('option');
@@ -243,20 +268,20 @@ function populateFormats(formats) {
     }
     
     if (audioFormats.length > 0) {
-        audioFormats.forEach(f => {
-            const bitrateStr = f.quality || 'Best Audio';
-            const sizeStr = f.filesize_approx ? ` (~${formatBytes(f.filesize_approx)})` : '';
-            const option = document.createElement('option');
-            option.value = JSON.stringify({
-                format_id: f.format_id,
-                expected_size: f.filesize_approx || 0
-            });
-            option.textContent = `${bitrateStr} (mp3) ${sizeStr}`;
-            audioSelect.appendChild(option);
+        // Keep the best audio format based on filesize
+        const bestAudio = audioFormats.sort((a, b) => (b.filesize_approx || 0) - (a.filesize_approx || 0))[0];
+        
+        const bitrateStr = bestAudio.quality || 'Best Audio';
+        const sizeStr = bestAudio.filesize_approx ? ` (~${formatBytes(bestAudio.filesize_approx)})` : '';
+        const option = document.createElement('option');
+        option.value = JSON.stringify({
+            format_id: bestAudio.format_id,
+            expected_size: bestAudio.filesize_approx || 0
         });
+        option.textContent = `${bitrateStr} (mp3) ${sizeStr}`;
+        audioSelect.appendChild(option);
     } else {
         const option = document.createElement('option');
-        option.textContent = 'Best Quality MP3';
         option.value = JSON.stringify({ format_id: 'bestaudio', expected_size: 0 });
         option.textContent = 'Best Audio Quality (mp3)';
         audioSelect.appendChild(option);
