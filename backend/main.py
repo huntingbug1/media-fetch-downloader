@@ -616,13 +616,24 @@ async def _run_merge_job(job: DownloadJob, cmd: List[str], temp_path: str, cooki
         else:
             stderr_bytes = await proc.stderr.read()
             stderr_str = stderr_bytes.decode('utf-8', errors='replace').strip()
-            
+
             error_msg = ""
             if stderr_str:
-                # Keep error and warning lines for a clean display
-                lines = [line.strip() for line in stderr_str.split('\n') if 'error' in line.lower() or 'warning' in line.lower() or not line.strip().startswith('[')]
-                error_msg = "\n".join(lines) if lines else stderr_str
-            
+                # Extract only the meaningful error reason — strip the yt-dlp prefix
+                # e.g. "ERROR: [youtube] abc123: Requested format is not available"
+                #   → "Requested format is not available"
+                lines = [line.strip() for line in stderr_str.split('\n') if line.strip()]
+                error_lines = []
+                for line in lines:
+                    if 'error' in line.lower() or 'warning' in line.lower():
+                        # Strip: "ERROR: [extractor] videoId: "
+                        cleaned = re.sub(r'^ERROR:\s*\[[^\]]+\]\s*[\w-]+:\s*', '', line, flags=re.IGNORECASE).strip()
+                        # Strip: "WARNING: [extractor] "
+                        cleaned = re.sub(r'^WARNING:\s*\[[^\]]+\]\s*', '', cleaned, flags=re.IGNORECASE).strip()
+                        if cleaned:
+                            error_lines.append(cleaned)
+                error_msg = error_lines[0] if error_lines else (lines[-1] if lines else stderr_str)
+
             job.status = "failed"
             job.error = error_msg or "Download produced no output file"
     except Exception as e:

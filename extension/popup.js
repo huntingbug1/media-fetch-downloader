@@ -611,10 +611,18 @@ async function startDownload(format, data, origUrl, isAudio) {
     // which chrome.downloads.download() cannot send, causing silent 403 failures.
     const cdnDirectUrl = TIKWM.includes(format.format_id) ? (format.url || '') : '';
 
+    // For YouTube, numeric format IDs (e.g. "400") can expire between metadata fetch and download.
+    // Use a height-based selector instead — it always resolves correctly via _yt_format_selector().
+    const isYouTube = /youtube\.com|youtu\.be/.test(origUrl);
+    const fmtHeight = format.height || format.resolution || 0;
+    const resolvedFormatId = (isYouTube && !isAudio && /^\d+$/.test(format.format_id) && fmtHeight > 0)
+        ? `bestvideo[height<=${fmtHeight}]+bestaudio`  // height-based — never expires
+        : format.format_id;                             // use raw ID for TikTok/Instagram/etc.
+
     const params = new URLSearchParams({
         url: origUrl,
-        format_id: format.format_id,
-        height: (format.height || format.resolution || 0).toString(),
+        format_id: resolvedFormatId,
+        height: fmtHeight.toString(),
         filename: filename.split('/').pop(),
         is_audio: isAudio.toString(),
         needs_merge: (format.needs_merge === true && !cdnDirectUrl).toString(),
@@ -833,7 +841,20 @@ function renderDownloads() {
         // ── Status badges (non-progress states) ───────────────────────────────
         let badge = '';
         if (dl.status === 'done')   badge = `<span class="dl-status done">✅ Done</span>`;
-        if (dl.status === 'failed') badge = `<span class="dl-status failed">❌ ${(dl.error || 'Failed').substring(0, 28)}</span>`;
+        if (dl.status === 'failed') {
+            // Map known yt-dlp errors to friendly one-liners
+            const raw = dl.error || 'Failed';
+            let friendly = raw;
+            if (/requested format is not available/i.test(raw))   friendly = 'Format unavailable — try a different quality';
+            else if (/http error 403/i.test(raw))                  friendly = 'Access denied (403) — try again';
+            else if (/http error 429/i.test(raw))                  friendly = 'Rate limited — wait a minute and retry';
+            else if (/sign in to confirm/i.test(raw))              friendly = 'Age-restricted — sign into YouTube first';
+            else if (/video unavailable/i.test(raw))               friendly = 'Video unavailable in your region';
+            else if (/private video/i.test(raw))                   friendly = 'Private video — no access';
+            else if (/timed out/i.test(raw))                       friendly = 'Timed out — try a lower quality';
+            else if (/no output file/i.test(raw))                  friendly = 'Download failed — try again';
+            badge = `<span class="dl-status failed" title="${raw.replace(/"/g, '&quot;')}">❌ ${friendly.substring(0, 60)}</span>`;
+        }
 
         item.innerHTML = `
       <img class="dl-thumb" src="${dl.thumbnail || 'icons/icon128.png'}" alt="" />
