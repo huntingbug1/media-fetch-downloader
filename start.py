@@ -54,6 +54,15 @@ def get_local_ip():
 def main():
     print("\n🚀  Media Fetch — Universal Installer & Starter\n")
 
+    # ── 0. Python version check ───────────────────────────────────────────────
+    if sys.version_info < (3, 10):
+        print_err(
+            f"Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro} is too old.\n"
+            "  yt-dlp requires Python 3.10 or newer.\n"
+            "  Download Python 3.13 from: https://www.python.org/downloads/\n"
+            "  IMPORTANT: If on Windows, check 'Add Python to PATH' during installation."
+        )
+
     root_dir    = os.path.dirname(os.path.abspath(__file__))
     backend_dir = os.path.join(root_dir, "backend")
     venv_dir    = os.path.join(backend_dir, "venv")
@@ -64,6 +73,26 @@ def main():
 
     # ── 1. Virtual environment ────────────────────────────────────────────────
     print_step("Checking Python virtual environment...")
+    
+    if os.path.exists(venv_dir):
+        if is_windows:
+            venv_py = os.path.join(venv_dir, "Scripts", "python.exe")
+        else:
+            venv_py = os.path.join(venv_dir, "bin", "python3")
+            
+        if os.path.exists(venv_py):
+            try:
+                res = subprocess.run([venv_py, "-c", "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)"], capture_output=True)
+                if res.returncode != 0:
+                    print_info("Existing virtual environment is using an old Python version. Rebuilding...")
+                    shutil.rmtree(venv_dir)
+            except Exception:
+                print_info("Virtual environment check failed. Rebuilding...")
+                shutil.rmtree(venv_dir)
+        else:
+            print_info("Virtual environment is broken. Rebuilding...")
+            shutil.rmtree(venv_dir)
+
     if not os.path.exists(venv_dir):
         print("  Creating virtual environment...")
         venv.create(venv_dir, with_pip=True)
@@ -87,6 +116,33 @@ def main():
     run_cmd([py_exe, "-m", "pip", "install", "--upgrade", "pip"])
     run_cmd([py_exe, "-m", "pip", "install", "--upgrade"] + reqs)
     print_ok("All Python packages installed")
+
+    # Verify yt-dlp version post-install
+    print("  Checking yt-dlp version...")
+    try:
+        result = subprocess.run([py_exe, "-m", "yt_dlp", "--version"], capture_output=True, text=True)
+        ytdlp_ver = result.stdout.strip()
+        parts = ytdlp_ver.split(".")
+        if parts and parts[0].isdigit():
+            year = int(parts[0])
+            if year < 2026:
+                print_info(f"yt-dlp version {ytdlp_ver} is outdated (minimum: 2026.x)")
+                print("  Force-reinstalling latest yt-dlp...")
+                run_cmd([py_exe, "-m", "pip", "install", "--upgrade", "--force-reinstall", "yt-dlp"])
+                result = subprocess.run([py_exe, "-m", "yt_dlp", "--version"], capture_output=True, text=True)
+                ytdlp_ver_new = result.stdout.strip()
+                print_ok(f"yt-dlp upgraded to {ytdlp_ver_new}")
+            else:
+                print_ok(f"yt-dlp version {ytdlp_ver} is up to date")
+        else:
+            if ytdlp_ver:
+                print_info(f"Unrecognized yt-dlp version format: {ytdlp_ver}. Reinstalling...")
+            else:
+                print_info("yt-dlp version not detected. Reinstalling...")
+            run_cmd([py_exe, "-m", "pip", "install", "--upgrade", "--force-reinstall", "yt-dlp"])
+    except Exception as e:
+        print_info(f"Could not verify yt-dlp version: {e}. Reinstalling...")
+        run_cmd([py_exe, "-m", "pip", "install", "--upgrade", "--force-reinstall", "yt-dlp"])
 
     # ── 3. ffmpeg ─────────────────────────────────────────────────────────────
     print_step("Checking ffmpeg (needed for HD video merging)...")

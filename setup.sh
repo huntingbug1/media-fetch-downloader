@@ -29,10 +29,38 @@ if ! command -v python3 &>/dev/null; then
     echo "    Linux:  sudo apt install python3 python3-pip"
     exit 1
 fi
+
+if ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" &>/dev/null; then
+    PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
+    echo "❌  Python $PY_VER is too old (minimum: 3.10)"
+    echo "    yt-dlp 2026.x requires Python 3.10 or newer."
+    echo ""
+    if [ "$(uname)" = "Darwin" ]; then
+        echo "    Fix — choose one:"
+        echo "      Homebrew:   brew install python@3.13"
+        echo "      python.org: https://www.python.org/downloads/"
+    else
+        echo "    Fix — choose one:"
+        echo "      Ubuntu/Debian:  sudo apt install python3.12 python3.12-venv"
+        echo "      Fedora/RHEL:    sudo dnf install python3.12"
+        echo "      Any Linux:      https://github.com/pyenv/pyenv  (pyenv install 3.13)"
+    fi
+    echo ""
+    echo "    After installing Python 3.10+, run this script again."
+    exit 1
+fi
+
 PY=$(python3 --version | awk '{print $2}')
 echo "✓  Python $PY"
 
 # 2. Create venv
+if [ -d "backend/venv" ]; then
+    if ! backend/venv/bin/python3 -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" &>/dev/null; then
+        echo "⚠  Existing virtual environment is using an old Python version. Rebuilding..."
+        rm -rf backend/venv
+    fi
+fi
+
 if [ ! -d "backend/venv" ]; then
     echo "→  Creating virtual environment..."
     python3 -m venv backend/venv
@@ -47,6 +75,20 @@ $PIP_EXE install -q --upgrade pip
 $PIP_EXE install -q --upgrade fastapi "uvicorn[standard]" yt-dlp aiohttp aiofiles \
     imageio-ffmpeg python-multipart pydantic certifi
 echo "✓  Python packages ready"
+
+# Verify yt-dlp version
+echo "→  Verifying yt-dlp version..."
+YTDLP_VER=$($PY_EXE -m yt_dlp --version 2>/dev/null || echo "0.0.0")
+YTDLP_YEAR=$(echo "$YTDLP_VER" | cut -d'.' -f1)
+if [[ ! "$YTDLP_YEAR" =~ ^[0-9]+$ ]] || [ "$YTDLP_YEAR" -lt 2026 ]; then
+    echo "⚠  yt-dlp version $YTDLP_VER is outdated (minimum: 2026.x)"
+    echo "→  Force-reinstalling latest yt-dlp..."
+    $PIP_EXE install -q --upgrade --force-reinstall yt-dlp
+    YTDLP_VER_NEW=$($PY_EXE -m yt_dlp --version 2>/dev/null || echo "0.0.0")
+    echo "✓  yt-dlp upgraded to $YTDLP_VER_NEW"
+else
+    echo "✓  yt-dlp version $YTDLP_VER is up to date"
+fi
 
 # 4. ffmpeg
 if command -v ffmpeg &>/dev/null; then
