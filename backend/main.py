@@ -54,6 +54,14 @@ async def check_github_updates():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Startup: delete temp files older than 1 hour. Keeps disk clean."""
+    # Clear yt-dlp cache on startup to avoid signature 403 errors
+    try:
+        import subprocess
+        subprocess.run([YTDLP_BIN, "--rm-cache-dir"], capture_output=True)
+        print("[MediaFetch Startup] Cleared yt-dlp cache directory.")
+    except Exception as e:
+        print(f"[MediaFetch Startup] Failed to clear yt-dlp cache: {e}")
+
     # Initialize SQLite Cache database
     try:
         cache_db.init_db()
@@ -350,8 +358,9 @@ def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0
             "aria2c:-x 16 -s 16 -k 1M --min-split-size=1M --file-allocation=none",
         ])
     else:
-        # Fallback: yt-dlp native parallel fragments
-        cmd.extend(["--concurrent-fragments", "16"])
+        # Fallback: yt-dlp native parallel fragments (disabled for YouTube to avoid 403 blocks)
+        if not is_youtube:
+            cmd.extend(["--concurrent-fragments", "16"])
 
     ffmpeg_path = _get_ffmpeg()
     if ffmpeg_path:
