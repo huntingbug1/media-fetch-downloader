@@ -579,17 +579,13 @@ async function startPlaylistEntry(dl) {
             });
             updateDownload(dl.id, { status: 'downloading' });
         } else {
-            const res = await fetch(`${BACKEND_URL}/api/download?${params}`);
-            if (!res.ok) throw new Error(`Error ${res.status}`);
-            const j = await res.json();
-            updateDownload(dl.id, { jobId: j.job_id, status: 'downloading' });
-            // Hand off long polling to background.js so it survives popup closure
             chrome.runtime.sendMessage({
-                type: 'POLL_MERGE_JOB',
-                jobId: j.job_id,
+                type: 'START_MERGE_JOB',
+                downloadUrl: `${BACKEND_URL}/api/download?${params}`,
                 filename: dl.filename,
                 dlId: dl.id,
             });
+            updateDownload(dl.id, { status: 'queued' });
         }
     } catch (err) {
         updateDownload(dl.id, { status: 'failed' });
