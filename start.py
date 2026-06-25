@@ -82,7 +82,7 @@ def main():
 
     # ── 2. Python packages ────────────────────────────────────────────────────
     print_step("Installing required Python packages...")
-    reqs = ["fastapi", "uvicorn", "aiohttp", "yt-dlp", "imageio-ffmpeg", "aiofiles", "pydantic", "python-multipart"]
+    reqs = ["fastapi", "uvicorn", "aiohttp", "yt-dlp", "imageio-ffmpeg", "aiofiles", "pydantic", "python-multipart", "certifi"]
     run_cmd([py_exe, "-m", "pip", "install", "--upgrade", "pip"])
     run_cmd([py_exe, "-m", "pip", "install", "--upgrade"] + reqs)
     print_ok("All Python packages installed")
