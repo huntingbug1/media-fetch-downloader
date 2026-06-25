@@ -9,7 +9,9 @@ import json
 import time
 import hashlib
 import urllib.parse
+import ssl
 import aiohttp
+import certifi
 from typing import Optional, List
 from fastapi import FastAPI, HTTPException, BackgroundTasks
 from fastapi.middleware.cors import CORSMiddleware
@@ -30,8 +32,11 @@ async def check_github_updates():
         try:
             print("[MediaFetch Update] Checking GitHub for updates...")
             url = "https://raw.githubusercontent.com/huntingbug1/media-fetch-downloader/main/version.txt"
-            async with aiohttp.ClientSession() as session:
-                async with session.get(url, timeout=10) as resp:
+            # Use certifi SSL context so this works even on macOS without system certs installed
+            ssl_ctx = ssl.create_default_context(cafile=certifi.where())
+            connector = aiohttp.TCPConnector(ssl=ssl_ctx)
+            async with aiohttp.ClientSession(connector=connector) as session:
+                async with session.get(url, timeout=aiohttp.ClientTimeout(total=15)) as resp:
                     if resp.status == 200:
                         remote_version = (await resp.text()).strip()
                         if remote_version and remote_version != VERSION:
@@ -342,6 +347,7 @@ def _download_yt_cmd(url: str, format_id: str, output_path: str, height: int = 0
         "--no-warnings",
         "--no-playlist",
         "--no-check-formats",
+        "--no-check-certificate",  # Bypass SSL cert errors on macOS Python.org installs
         "--no-mtime",
         "--force-ipv4",
         "-o", output_path,
@@ -425,6 +431,7 @@ def _stream_audio_cmd(url: str, format_id: str, info_json_path: Optional[str] = 
         "--no-warnings",
         "--no-playlist",
         "--no-check-formats",
+        "--no-check-certificate",  # Bypass SSL cert errors on macOS Python.org installs
         "-f", "bestaudio/best",
         "--extract-audio",
         "--audio-format", "mp3",
@@ -455,6 +462,7 @@ def _stream_video_cmd(url: str, format_id: str, height: int = 0, info_json_path:
         "--no-warnings",
         "--no-playlist",
         "--no-check-formats",
+        "--no-check-certificate",  # Bypass SSL cert errors on macOS Python.org installs
         "--concurrent-fragments", "16",
         "--buffer-size", "1024K",
         "--http-chunk-size", "10M",
@@ -1003,7 +1011,8 @@ async def _run_playlist_job(job: DownloadJob, playlist_id: str, request: Playlis
         try:
             out_path = os.path.join(playlist_folder, f"{idx:03d}_video.%(ext)s")
             cmd = [
-                YTDLP_BIN, "--no-warnings", "--no-playlist", "--no-check-formats"
+                YTDLP_BIN, "--no-warnings", "--no-playlist", "--no-check-formats",
+                "--no-check-certificate",  # Bypass SSL cert errors on macOS Python.org installs
             ]
             ffmpeg_path = _get_ffmpeg()
             if ffmpeg_path:
