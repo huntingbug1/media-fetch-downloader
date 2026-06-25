@@ -4,31 +4,39 @@ A powerful, high-performance media downloader extension and local backend suite 
 
 ---
 
-## 🚀 Quick Start
+## 🚀 Installation & Setup
 
-### 1. Start the Backend
-The backend runs locally on port `8000`. Run the automatic setup & start script for your system:
+### 1. Clone the Repository
+On your new device, open a terminal/command prompt and clone the repository:
+```bash
+git clone https://github.com/huntingbug1/media-fetch-downloader.git
+cd media-fetch-downloader
+```
+
+### 2. Start the Backend Server
+The backend runs locally on port `8000` (or the next available port). Run the automatic setup script for your system:
 
 #### macOS / Linux
 ```bash
-# Run one-click setup & start script
+chmod +x setup.sh
 ./setup.sh
 ```
 
 #### Windows
-Double-click `setup.bat` or run:
-```cmd
-setup.bat
-```
+Double-click `setup.bat` (or double-click `run_background.vbs` to run it silently in the background).
 
-### 2. Install the Browser Extension
-1. Open Chrome and navigate to `chrome://extensions`.
-2. Enable **Developer Mode** (top-right toggle).
-3. Click **Load unpacked** (top-left button).
-4. Select the `extension/` folder in this project directory.
+---
+
+### 3. Install the Browser Extension
+1. Open Google Chrome and navigate to `chrome://extensions`.
+2. Enable **Developer Mode** (toggle switch in the top-right corner).
+3. Click **Load unpacked** (button in the top-left corner).
+4. Select the `extension/` folder in your cloned `media-fetch-downloader` directory.
 5. The Media Fetch button `▼` will appear in your extensions list. Pin it!
 
-### 3. Access the Web Dashboard (Optional)
+---
+
+### 4. Access the Web Dashboard (Optional)
 If you prefer a web-based downloader interface, open your browser and navigate to:
 `http://localhost:8000/`
 
