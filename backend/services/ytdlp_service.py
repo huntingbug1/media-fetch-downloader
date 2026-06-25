@@ -529,6 +529,31 @@ class YTDLPService:
                 url=f.get('url')
             ))
             
+        # Deduplicate formats: keep one best format per resolution, prefer mp4, and keep one audio format
+        simplified_formats = []
+        seen_res = set()
+        video_formats = [f for f in formats_list if f.is_video]
+        audio_formats = [f for f in formats_list if not f.is_video and f.is_audio]
+
+        # Sort video formats: prefer mp4, then by filesize descending
+        video_formats.sort(key=lambda x: (x.extension == 'mp4', x.filesize_approx), reverse=True)
+
+        for vf in video_formats:
+            res = vf.resolution
+            if res not in seen_res and res > 0:
+                seen_res.add(res)
+                simplified_formats.append(vf)
+
+        # Sort descending by resolution for a clean UI list
+        simplified_formats.sort(key=lambda x: x.resolution, reverse=True)
+
+        # Add one best audio format
+        if audio_formats:
+            audio_formats.sort(key=lambda x: x.filesize_approx, reverse=True)
+            simplified_formats.append(audio_formats[0])
+
+        formats_list = simplified_formats
+
         thumbnail = raw_data.get('thumbnail') or ''
         thumbnails = raw_data.get('thumbnails')
         if not thumbnail and thumbnails and isinstance(thumbnails, list) and len(thumbnails) > 0:
