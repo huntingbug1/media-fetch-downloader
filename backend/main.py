@@ -516,7 +516,7 @@ async def _run_merge_job(job: DownloadJob, cmd: List[str], temp_path: str, cooki
         proc = await asyncio.create_subprocess_exec(
             *cmd,
             stdout=asyncio.subprocess.DEVNULL,
-            stderr=asyncio.subprocess.DEVNULL,
+            stderr=asyncio.subprocess.PIPE,
         )
 
         # Timeout: 30 minutes max for merge jobs (handles YouTube throttling / stuck fragments)
@@ -597,8 +597,17 @@ async def _run_merge_job(job: DownloadJob, cmd: List[str], temp_path: str, cooki
             if job.is_dashboard:
                 save_to_local_downloads(temp_path, job.url, job.filename)
         else:
+            stderr_bytes = await proc.stderr.read()
+            stderr_str = stderr_bytes.decode('utf-8', errors='replace').strip()
+            
+            error_msg = ""
+            if stderr_str:
+                # Keep error and warning lines for a clean display
+                lines = [line.strip() for line in stderr_str.split('\n') if 'error' in line.lower() or 'warning' in line.lower() or not line.strip().startswith('[')]
+                error_msg = "\n".join(lines) if lines else stderr_str
+            
             job.status = "failed"
-            job.error = "Download produced no output file"
+            job.error = error_msg or "Download produced no output file"
     except Exception as e:
         job.status = "failed"
         job.error = str(e)
