@@ -30,7 +30,7 @@ PIP_EXE="backend/venv/bin/pip"
 # 3. Install Python deps
 echo "→  Installing Python packages..."
 $PIP_EXE install -q --upgrade pip
-$PIP_EXE install -q fastapi "uvicorn[standard]" yt-dlp aiohttp aiofiles \
+$PIP_EXE install -q --upgrade fastapi "uvicorn[standard]" yt-dlp aiohttp aiofiles \
     imageio-ffmpeg python-multipart pydantic
 echo "✓  Python packages ready"
 
